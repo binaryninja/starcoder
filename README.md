@@ -140,7 +140,7 @@ python finetune/finetune.py \
   --lr_scheduler_type="cosine"\
   --num_warmup_steps 100\
   --weight_decay 0.05\
-  --output_dir="./checkpoints" \
+  --output_dir="./checkpoints" 
 ```
 The size of the SE dataset is better manageable when using streaming. We also have to precise the split of the dataset that is used. For more details, check the [dataset's page](https://huggingface.co/datasets/ArmelR/stack-exchange-instruction) on 🤗. Similarly we can modify the command to account for the availability of GPUs
 
@@ -163,7 +163,7 @@ python -m torch.distributed.launch \
   --lr_scheduler_type="cosine"\
   --num_warmup_steps 100\
   --weight_decay 0.05\
-  --output_dir="./checkpoints" \
+  --output_dir="./checkpoints" 
 ```
 ## Merging PEFT adapter layers
 If you train a model with PEFT, you'll need to merge the adapter layers with the base model if you want to run inference / evaluation. To do so, run:
