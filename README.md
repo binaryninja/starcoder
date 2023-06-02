@@ -1,4 +1,4 @@
-# 💫 StarCoder QLoRA 4bit Fork
+# 💫 2600-StarCoder QLoRA 4bit
 I followed this guide [Making LLMs even more accessible with bitsandbytes, 4-bit quantization and QLoRA
 ](https://huggingface.co/blog/4bit-transformers-bitsandbytes) by huggingface and implement the code in this repo 
 to load the model in 4bit int and train using the methods outlined in the paper.
@@ -36,7 +36,7 @@ To utilize a second GPU for faster training we change the device map:
         device_map={"": Accelerator().process_index},
 ```
 
-We launch the trainer with accelerate to make use of the second GPU.
+We launch the trainer with accelerate to make use of the second GPU.  We increase the max context to 2600 for 24GB, more GPT VRAM lets us train higher context lengths.
 ```
 accelerate launch /home/gpu/code/starcoder/finetune/finetune.py --model_path=bigcode/starcoder --dataset_name=ArmelR/stack-exchange-instruction --subset=data/finetune --split=train --size_valid_set 10000 --streaming --seq_length 2600 --max_steps 1000 --batch_size 1 --input_column_name=question --output_column_name=response --save_freq=100 --learning_rate 0.0001  --lora_r 16
 ```
