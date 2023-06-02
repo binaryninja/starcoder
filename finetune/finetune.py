@@ -4,11 +4,11 @@ import os
 import torch
 from accelerate import Accelerator
 from datasets import load_dataset
-from peft import LoraConfig, get_peft_model, prepare_model_for_int8_training, set_peft_model_state_dict
+from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training, set_peft_model_state_dict
 from torch.utils.data import IterableDataset
 from tqdm import tqdm
 from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer, Trainer, TrainingArguments, logging, set_seed
-from transformers import TrainerCallback, TrainingArguments, TrainerState, TrainerControl
+from transformers import TrainerCallback, TrainingArguments, TrainerState, TrainerControl, BitsAndBytesConfig
 from transformers.trainer_utils import PREFIX_CHECKPOINT_DIR
 
 """
@@ -235,16 +235,37 @@ def create_datasets(tokenizer, args):
 
 
 def run_training(args, train_data, val_data):
+
     print("Loading the model")
     # disable caching mechanism when using gradient checkpointing
+    # model = AutoModelForCausalLM.from_pretrained(
+    #     args.model_path,
+    #     use_auth_token=True,
+    #     use_cache=not args.no_gradient_checkpointing,
+    #     load_in_8bit=True,
+    #     device_map={"": Accelerator().process_index},
+    # )
+
+
     model = AutoModelForCausalLM.from_pretrained(
         args.model_path,
-        use_auth_token=True,
-        use_cache=not args.no_gradient_checkpointing,
-        load_in_8bit=True,
+        load_in_4bit=True,
         device_map={"": Accelerator().process_index},
+        #max_memory=max_memory,
+        #device_map="auto",
+        torch_dtype=torch.bfloat16,
+        quantization_config=BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_compute_dtype=torch.bfloat16,
+            bnb_4bit_use_double_quant=True,
+            bnb_4bit_quant_type='nf4'
+        ),
     )
-    model = prepare_model_for_int8_training(model)
+    print("loaded")
+
+
+    model.gradient_checkpointing_enable()
+    model = prepare_model_for_kbit_training(model)
 
     lora_config = LoraConfig(
         r=args.lora_r,
@@ -281,9 +302,10 @@ def run_training(args, train_data, val_data):
         fp16=not args.no_fp16,
         bf16=args.bf16,
         weight_decay=args.weight_decay,
-        run_name="StarCoder-finetuned",
+        run_name="2600-StarCoder-finetuned",
         report_to="wandb",
         ddp_find_unused_parameters=False,
+        optim="paged_adamw_8bit"
     )
 
     trainer = Trainer(model=model, args=training_args, train_dataset=train_data, eval_dataset=val_data, callbacks=[SavePeftModelCallback, LoadBestPeftModelCallback])
@@ -296,7 +318,7 @@ def run_training(args, train_data, val_data):
 
 
 def main(args):
-    tokenizer = AutoTokenizer.from_pretrained(args.model_path, use_auth_token=True)
+    tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path=args.model_path, use_auth_token=True)
     train_dataset, eval_dataset = create_datasets(tokenizer, args)
     run_training(args, train_dataset, eval_dataset)
 
