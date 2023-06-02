@@ -1,3 +1,48 @@
+# 💫 StarCoder QLoRA 4bit Fork
+I followed this guide [Making LLMs even more accessible with bitsandbytes, 4-bit quantization and QLoRA
+](https://huggingface.co/blog/4bit-transformers-bitsandbytes) by huggingface and implement the code in this repo 
+to load the model in 4bit int and train using the methods outlined in the paper.
+
+To make this work you're going to need the latese accelerate, transformers, and bitsandbytes libs. 
+```
+pip install -q -U bitsandbytes
+pip install -q -U git+https://github.com/huggingface/transformers.git
+pip install -q -U git+https://github.com/huggingface/peft.git
+pip install -q -U git+https://github.com/huggingface/accelerate.git
+```
+
+The model can beloaded in 11GB of VRAM at 4bit.
+```
+from transformers import BitsAndBytesConfig
+nf4_config = BitsAndBytesConfig(
+   load_in_4bit=True,
+   bnb_4bit_quant_type="nf4",
+   bnb_4bit_use_double_quant=True,
+   bnb_4bit_compute_dtype=torch.bfloat16
+)
+
+model_nf4 = AutoModelForCausalLM.from_pretrained(model_id, quantization_config=nf4_config)
+```
+
+We add a the new optimizer to TrainingArguments()  
+```     
+        ...
+        optim="paged_adamw_8bit"
+        ...
+```
+
+To utilize a second GPU for faster training we change the device map:
+```
+        device_map={"": Accelerator().process_index},
+```
+
+We launch the trainer with accelerate to make use of the second GPU.
+```
+accelerate launch /home/gpu/code/starcoder/finetune/finetune.py --model_path=bigcode/starcoder --dataset_name=ArmelR/stack-exchange-instruction --subset=data/finetune --split=train --size_valid_set 10000 --streaming --seq_length 2600 --max_steps 1000 --batch_size 1 --input_column_name=question --output_column_name=response --save_freq=100 --learning_rate 0.0001  --lora_r 16
+```
+![image](https://github.com/binaryninja/starcoder/assets/5916066/cc159829-125a-48d2-8239-f65fdbd4ad91)
+
+
 # 💫 StarCoder
 
 [Paper](https://drive.google.com/file/d/1cN-b9GnWtHzQRoE7M7gAEyivY0kl4BYs/view) | [Model](https://huggingface.co/bigcode/starcoder) | [Playground](https://huggingface.co/spaces/bigcode/bigcode-playground) | [VSCode](https://marketplace.visualstudio.com/items?itemName=HuggingFace.huggingface-vscode) | [Chat](https://huggingface.co/spaces/HuggingFaceH4/starchat-playground)
